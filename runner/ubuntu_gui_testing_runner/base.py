@@ -112,6 +112,7 @@ class _BaseLibvirtRunner(Runner):
         if self.keep:
             if self._domain is not None:
                 self._shutdown_domain()
+            self._write_domain_name_file()
             LOGGER.info(
                 "Keeping domain '%s' and associated resources as requested",
                 self.domain_name,
@@ -155,6 +156,11 @@ class _BaseLibvirtRunner(Runner):
         self._disk_volume = None
         self._pool = None
         self._conn = None
+
+    def _write_domain_name_file(self) -> None:
+        self.artifacts_path.mkdir(parents=True, exist_ok=True)
+        domain_name_file = self.artifacts_path / "domain-name.txt"
+        domain_name_file.write_text(f"SOURCE_DOMAIN={self.domain_name}\n")
 
     def _shutdown_domain(self) -> None:
         """Power off the domain, gracefully first then forcefully on timeout.
