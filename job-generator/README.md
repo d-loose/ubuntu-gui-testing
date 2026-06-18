@@ -30,8 +30,11 @@ Each test defines exactly one of:
 
 - `iso: <filename>` — boot from an ISO (resolved against `/isos` on the agent).
 - `depends-on: <suite>/<test>` — clone the libvirt domain produced by another
-  test. The producer job runs with `--keep` and forwards the produced domain
-  name to the consumer job via a Jenkins build parameter.
+  test. The producer job runs with `--keep` so its domain survives, and a
+  `reverse` trigger starts the consumer job whenever the producer succeeds. The
+  consumer resolves the producer's most recent domain itself via
+  `--source-domain-prefix ugt-<suite>-<test>`, so no Jenkins plugin or build
+  parameter is required.
 
 ## Development
 

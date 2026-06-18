@@ -39,7 +39,7 @@ suites:
     content = output_file.read_text()
     assert "ugt-desktop-installer-resolute.entire-disk" in content
     assert "ugt-firefox-example-firefox-example-basic" in content
-    assert "trigger-parameterized-builds" in content
+    assert "reverse" in content
 
 
 def test_run_writes_to_stdout(

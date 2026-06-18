@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from job_generator.schema import Config, Test
+from job_generator.schema import Config, GeneratorError, Test
 
 REPO_URL = "https://github.com/canonical/ubuntu-gui-testing/"
 BRANCH = "main"
 ISO_DIR = "/isos"
-PROPERTY_FILE = "runner/artifacts/domain-name.txt"
 
 
 def generate_jobs(config: Config) -> list[dict[str, Any]]:
@@ -16,40 +15,26 @@ def generate_jobs(config: Config) -> list[dict[str, Any]]:
 
 def _build_job(config: Config, test: Test) -> dict[str, Any]:
     is_producer = config.is_producer(test)
+    producer = config.producer_of(test)
     job: dict[str, Any] = {"name": test.job_name}
 
-    if test.depends_on is not None:
-        job["parameters"] = [
+    if producer is not None:
+        job["triggers"] = [
             {
-                "string": {
-                    "name": "SOURCE_DOMAIN",
-                    "default": "",
-                    "description": "Domain to clone from the producer job",
+                "reverse": {
+                    "jobs": producer.job_name,
+                    "result": "success",
                 }
             }
         ]
 
     job["scm"] = [{"git": {"url": REPO_URL, "branches": [BRANCH]}}]
-    job["builders"] = [{"shell": _build_shell(test, is_producer)}]
-
-    if is_producer:
-        job["publishers"] = [
-            {
-                "trigger-parameterized-builds": [
-                    {
-                        "project": consumer.job_name,
-                        "condition": "SUCCESS",
-                        "property-file": PROPERTY_FILE,
-                    }
-                    for consumer in config.consumers_of(test)
-                ]
-            }
-        ]
+    job["builders"] = [{"shell": _build_shell(test, is_producer, producer)}]
 
     return job
 
 
-def _build_shell(test: Test, is_producer: bool) -> str:
+def _build_shell(test: Test, is_producer: bool, producer: Test | None) -> str:
     lines = [
         "cd runner && uv run ubuntu-gui-testing-runner \\",
         f"  --suite ../tests/{test.suite} \\",
@@ -57,8 +42,12 @@ def _build_shell(test: Test, is_producer: bool) -> str:
     ]
     if test.iso is not None:
         source = f"  --iso {ISO_DIR}/{test.iso}"
+    elif producer is not None:
+        source = f"  --source-domain-prefix {producer.job_name}"
     else:
-        source = '  --source-domain "$SOURCE_DOMAIN"'
+        raise GeneratorError(
+            f"Test '{test.key}' has neither 'iso' nor a resolvable producer"
+        )
     if is_producer:
         source += " \\"
         lines.append(source)

@@ -44,18 +44,8 @@ suites:
     assert "--test resolute.entire-disk" in shell
     assert "--iso /isos/ubuntu-26.04-desktop-amd64.iso" in shell
     assert "--keep" in shell
-    assert "parameters" not in producer
-    assert producer["publishers"] == [
-        {
-            "trigger-parameterized-builds": [
-                {
-                    "project": "ugt-firefox-example-firefox-example-basic",
-                    "condition": "SUCCESS",
-                    "property-file": "runner/artifacts/domain-name.txt",
-                }
-            ]
-        }
-    ]
+    assert "triggers" not in producer
+    assert "publishers" not in producer
 
 
 def test_dependency_consumer_job(tmp_path: Path) -> None:
@@ -78,19 +68,18 @@ suites:
     consumer = jobs[1]["job"]
 
     assert consumer["name"] == "ugt-firefox-example-firefox-example-basic"
-    assert consumer["parameters"] == [
+    assert consumer["triggers"] == [
         {
-            "string": {
-                "name": "SOURCE_DOMAIN",
-                "default": "",
-                "description": "Domain to clone from the producer job",
+            "reverse": {
+                "jobs": "ugt-desktop-installer-resolute.entire-disk",
+                "result": "success",
             }
         }
     ]
     shell = consumer["builders"][0]["shell"]
     assert "--suite ../tests/firefox-example" in shell
     assert "--test firefox-example-basic" in shell
-    assert '--source-domain "$SOURCE_DOMAIN"' in shell
+    assert "--source-domain-prefix ugt-desktop-installer-resolute.entire-disk" in shell
     assert "--keep" not in shell
     assert "--iso" not in shell
     assert "publishers" not in consumer
@@ -113,4 +102,4 @@ suites:
 
     assert "--keep" not in job["builders"][0]["shell"]
     assert "publishers" not in job
-    assert "parameters" not in job
+    assert "triggers" not in job

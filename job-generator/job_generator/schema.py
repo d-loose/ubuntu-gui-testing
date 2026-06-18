@@ -37,6 +37,14 @@ class Config:
     def consumers_of(self, test: Test) -> list[Test]:
         return [other for other in self.tests if other.depends_on == test.key]
 
+    def producer_of(self, test: Test) -> Test | None:
+        if test.depends_on is None:
+            return None
+        return next(
+            (other for other in self.tests if other.key == test.depends_on),
+            None,
+        )
+
 
 def load_config(path: Path) -> Config:
     raw = yaml.safe_load(path.read_text())

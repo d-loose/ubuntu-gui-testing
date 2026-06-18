@@ -18,9 +18,9 @@
 - Jenkins job repo URL (hardcoded): `https://github.com/canonical/ubuntu-gui-testing/`, branch `main`.
 - ISOs resolved on the agent against `/isos`.
 - Runner invoked from `runner/` via: `cd runner && uv run ubuntu-gui-testing-runner ...`, suite path `../tests/<suite>`.
-- `--keep` only on producer tests; producers export domain name via property file `runner/artifacts/domain-name.txt` in format `SOURCE_DOMAIN=<name>`.
-- Consumer jobs read `$SOURCE_DOMAIN` build parameter for `--source-domain`.
-- Input-schema dependency field is `depends-on` (value `<suite>/<test>`). The runner CLI flag remains `--source-domain`.
+- `--keep` only on producer tests so their domain survives. Domains are named `ugt-<suite>-<test>-<YYYYMMDDTHHMMSSZ>` (UTC, sortable, with `-N` collision suffix).
+- Consumer jobs declare a `reverse` trigger on the producer job (`result: success`) and resolve the producer's domain with `--source-domain-prefix ugt-<psuite>-<ptest>`. No Jenkins plugin or build parameter is used.
+- Input-schema dependency field is `depends-on` (value `<suite>/<test>`). Producer and consumer run on the same libvirt host (`qemu:///session`).
 - No Jenkins node labels.
 - After code changes, run from each package dir: `uv run ruff format .`, `uv run ruff check .`, `uv run mypy .`, `uv run pytest tests/`.
 

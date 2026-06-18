@@ -56,24 +56,28 @@ suites:
     cd runner && uv run ubuntu-gui-testing-runner \
       --suite ../tests/<suite> \
       --test <test> \
-      <--iso /isos/<file> | --source-domain "$SOURCE_DOMAIN"> \
+      <--iso /isos/<file> | --source-domain-prefix ugt-<psuite>-<ptest>> \
       [--keep]
     ```
 
     - `--iso /isos/<file>` is used for ISO-sourced tests.
-    - `--source-domain "$SOURCE_DOMAIN"` is used for domain-sourced tests, where
-      `SOURCE_DOMAIN` is a build parameter (see below).
+    - `--source-domain-prefix ugt-<psuite>-<ptest>` is used for domain-sourced
+      tests, where `ugt-<psuite>-<ptest>` is the producer's job name (and domain
+      prefix). The runner resolves the most recent matching domain itself.
     - `--keep` is added only when the test is a producer, i.e. it is referenced
       as a `depends-on` by at least one other test.
-- **Consumer jobs** (tests with a `depends-on`) declare a `SOURCE_DOMAIN`
-  string build parameter, which is consumed by `--source-domain`.
-- **Producer jobs** (tests referenced by a `depends-on`) use the
-  `trigger-parameterized-builds` publisher to trigger each of their consumer
-  jobs on success. The `SOURCE_DOMAIN` value is forwarded from a **property
-  file** at `runner/artifacts/domain-name.txt`, which the runner writes (see
-  "Runner change").
+- **Consumer jobs** (tests with a `depends-on`) declare a `reverse` trigger on
+  the producer's job with `result: success`, so they run after the producer
+  succeeds. They pass no parameters; the producer's domain is discovered by
+  prefix at runtime.
+- **Producer jobs** (tests referenced by a `depends-on`) run with `--keep` so
+  their domain survives for consumers to clone. No publisher or Jenkins plugin
+  is required.
 - Output is a single JJB YAML document, written to stdout by default or to a
   path given by `-o/--output`.
+
+  Producer and consumer run on the same host (libvirt `qemu:///session`), so the
+  producer's domain is locally visible to the consumer.
 
 ### Node labels
 
@@ -109,17 +113,14 @@ job_generator/
 
 ## Runner change (in scope)
 
-In `runner/ubuntu_gui_testing_runner/base.py`, in `close()`, within the
-`self.keep` branch: write `self.domain_name` to
-`self.artifacts_path / "domain-name.txt"` in JJB property-file format:
+Domains are named `ugt-<suite>-<test>-<YYYYMMDDTHHMMSSZ>` (UTC, fixed-width),
+with a `-N` collision counter appended only when the same second is reused.
+The fixed-width timestamp makes names lexicographically sortable, so the most
+recent domain for a prefix is simply the greatest matching name.
 
-```
-SOURCE_DOMAIN=<domain_name>
-```
-
-The file is written **only** when `--keep` is set. This gives downstream
-consumer jobs the exact produced domain name (which includes a date and
-possible run-number suffix).
+The runner gains `--source-domain-prefix`: it lists domains, selects the latest
+one matching `ugt-<suite>-<test>-<timestamp>`, and clones it. This lets consumer
+jobs resolve the producer's domain without any out-of-band parameter passing.
 
 ## Error handling
 
@@ -134,13 +135,15 @@ possible run-number suffix).
 - `test_schema.py` — validation cases: valid input, both/neither source,
   dangling reference, cycle detection, producer/consumer derivation.
 - `test_generator.py` — generated job dicts: job names, SCM, builder command,
-  `--keep` only for producers, `SOURCE_DOMAIN` parameter on consumers, trigger
-  publisher on producers with the property file.
+  `--keep` only for producers, `reverse` trigger on consumers referencing the
+  producer job, and `--source-domain-prefix` for domain-sourced tests.
 - `test_cli.py` — end-to-end: input YAML file → generated JJB YAML.
 
 `runner/tests/`:
 
-- A test asserting `domain-name.txt` is written on `--keep` and not otherwise.
+- Tests asserting the UTC-timestamp domain naming and that
+  `resolve_latest_domain` selects the newest matching domain (and raises when
+  none match).
 
 ## Quality gates
 
