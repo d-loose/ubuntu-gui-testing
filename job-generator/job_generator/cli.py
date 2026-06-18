@@ -31,14 +31,13 @@ def run(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         config = load_config(Path(args.input_file))
+        output = render(generate_jobs(config))
     except GeneratorError as exc:
         print(str(exc), file=sys.stderr)
         return 1
 
-    output = render(generate_jobs(config))
-
     if args.output is None:
         sys.stdout.write(output)
     else:
-        Path(args.output).write_text(output)
+        Path(args.output).write_text(output, encoding="utf-8")
     return 0
