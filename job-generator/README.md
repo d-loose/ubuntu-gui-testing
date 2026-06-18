@@ -1,0 +1,52 @@
+# Job Generator
+
+Job generator for Ubuntu GUI testing.
+
+## Usage
+
+Generate a jenkins-job-builder config from an input YAML:
+
+```bash
+job-generator input.yaml -o jobs.yaml
+```
+
+Omit `-o` to write to stdout.
+
+### Input format
+
+```yaml
+suites:
+  desktop-installer:
+    tests:
+      resolute.entire-disk:
+        iso: ubuntu-26.04-desktop-amd64.iso
+  firefox-example:
+    tests:
+      firefox-example-basic:
+        depends-on: desktop-installer/resolute.entire-disk
+```
+
+Each test defines exactly one of:
+
+- `iso: <filename>` — boot from an ISO (resolved against `/isos` on the agent).
+- `depends-on: <suite>/<test>` — clone the libvirt domain produced by another
+  test. The producer job runs with `--keep` and forwards the produced domain
+  name to the consumer job via a Jenkins build parameter.
+
+## Development
+
+Requires Python ≥ 3.12 and [uv](https://docs.astral.sh/uv/).
+
+```bash
+cd job-generator
+uv sync --group dev
+```
+
+### Quality checks
+
+```bash
+uv run ruff format .
+uv run ruff check .
+uv run mypy .
+uv run pytest tests/
+```
