@@ -45,13 +45,14 @@ suites:
 ## Generated jenkins-job-builder output
 
 To avoid repeating the shared SCM and shell skeleton in every job, the output
-is structured as JJB defaults + a single job template + one project:
+is structured as a single job template plus one project:
 
-- A `- defaults:` block named `global` holds the shared **SCM** (git checkout of
-  `https://github.com/canonical/ubuntu-gui-testing/`, branch `main`). JJB
-  applies it to every job automatically. The repo URL is hardcoded for now.
-- A single `- job-template:` named `ugt-{suite}-{test}` holds the shared shell
-  skeleton and a `triggers: '{obj:triggers}'` slot:
+- A single `- job-template:` named `ugt-{suite}-{test}` holds the shared **SCM**
+  (git checkout of `https://github.com/canonical/ubuntu-gui-testing/`, branch
+  `main`; the repo URL is hardcoded for now), the shared shell skeleton, and a
+  `triggers: '{obj:triggers}'` slot. The SCM lives in the template (not a global
+  `defaults` block) so the output can be dropped into a larger collection of JJB
+  files without overriding the collection's shared `global` defaults.
 
     ```bash
     cd runner && uv run ubuntu-gui-testing-runner \
@@ -133,8 +134,8 @@ jobs resolve the producer's domain without any out-of-band parameter passing.
 
 - `test_schema.py` — validation cases: valid input, both/neither source,
   dangling reference, cycle detection, producer/consumer derivation.
-- `test_generator.py` — generated structure: the `defaults`/`job-template`/
-  `project` shape, the shared SCM and shell skeleton, and per-test instances
+- `test_generator.py` — generated structure: the `job-template`/`project`
+  shape, the shared SCM and shell skeleton, and per-test instances
   (`args` with `--keep` only for producers, `--source-domain-prefix` for
   domain-sourced tests, and a `reverse` trigger on the producer for consumers).
 - `test_cli.py` — end-to-end: input YAML file → generated JJB YAML.

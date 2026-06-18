@@ -18,22 +18,15 @@ _SHELL = (
 
 def generate_jobs(config: Config) -> list[dict[str, Any]]:
     return [
-        {"defaults": _defaults()},
         {"job-template": _job_template()},
         {"project": _project(config)},
     ]
 
 
-def _defaults() -> dict[str, Any]:
-    return {
-        "name": "global",
-        "scm": [{"git": {"url": REPO_URL, "branches": [BRANCH]}}],
-    }
-
-
 def _job_template() -> dict[str, Any]:
     return {
         "name": "ugt-{suite}-{test}",
+        "scm": [{"git": {"url": REPO_URL, "branches": [BRANCH]}}],
         "triggers": "{obj:triggers}",
         "builders": [{"shell": _SHELL}],
     }

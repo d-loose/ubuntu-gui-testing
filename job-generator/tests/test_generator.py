@@ -22,7 +22,7 @@ def _instances(
     return result
 
 
-def test_emits_defaults_template_and_project(tmp_path: Path) -> None:
+def test_emits_template_and_project(tmp_path: Path) -> None:
     config = _config(
         tmp_path,
         """
@@ -37,13 +37,14 @@ suites:
     jobs = generate_jobs(config)
 
     assert [next(iter(item)) for item in jobs] == [
-        "defaults",
         "job-template",
         "project",
     ]
 
 
-def test_defaults_hold_shared_scm(tmp_path: Path) -> None:
+def test_job_template_holds_shared_scm_shell_and_triggers(
+    tmp_path: Path,
+) -> None:
     config = _config(
         tmp_path,
         """
@@ -56,10 +57,10 @@ suites:
     )
 
     jobs = generate_jobs(config)
-    defaults = jobs[0]["defaults"]
+    template = jobs[0]["job-template"]
 
-    assert defaults["name"] == "global"
-    assert defaults["scm"] == [
+    assert template["name"] == "ugt-{suite}-{test}"
+    assert template["scm"] == [
         {
             "git": {
                 "url": "https://github.com/canonical/ubuntu-gui-testing/",
@@ -67,24 +68,6 @@ suites:
             }
         }
     ]
-
-
-def test_job_template_holds_shared_shell_and_triggers(tmp_path: Path) -> None:
-    config = _config(
-        tmp_path,
-        """
-suites:
-  s:
-    tests:
-      t:
-        iso: x.iso
-""",
-    )
-
-    jobs = generate_jobs(config)
-    template = jobs[1]["job-template"]
-
-    assert template["name"] == "ugt-{suite}-{test}"
     assert template["triggers"] == "{obj:triggers}"
     shell = template["builders"][0]["shell"]
     assert "cd runner && uv run ubuntu-gui-testing-runner" in shell

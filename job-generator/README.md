@@ -38,10 +38,12 @@ Each test defines exactly one of:
 
 ### Output format
 
-The shared SCM and runner invocation are factored into a JJB `defaults` block
-and a single `job-template`; a `project` then instantiates one job per test
-with only its `suite`, `test`, `args`, and `triggers`. This keeps the generated
-config compact and free of per-job boilerplate.
+The shared SCM and runner invocation are factored into a single JJB
+`job-template`; a `project` then instantiates one job per test with only its
+`suite`, `test`, `args`, and `triggers`. This keeps the generated config compact
+and free of per-job boilerplate. The SCM lives in the template rather than a
+global `defaults` block, so the output can be combined with other JJB files
+without overriding their shared defaults.
 
 ## Development
 
