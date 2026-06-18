@@ -24,7 +24,7 @@ suites:
   firefox-example:
     tests:
       firefox-example-basic:
-        source-domain: desktop-installer/resolute.entire-disk
+        depends-on: desktop-installer/resolute.entire-disk
 ```
 
 ### Rules
@@ -34,12 +34,12 @@ suites:
 - Each test maps to a config object with **exactly one** source:
   - `iso: <filename>` — boot from an ISO. The filename is resolved on the
     Jenkins agent against `/isos`.
-  - `source-domain: <suite>/<test>` — clone the libvirt domain produced by
+  - `depends-on: <suite>/<test>` — clone the libvirt domain produced by
     another test in the same file.
-- Having both `iso` and `source-domain`, or neither, is a validation error.
-- A `source-domain` value must reference a test defined elsewhere in the same
+- Having both `iso` and `depends-on`, or neither, is a validation error.
+- A `depends-on` value must reference a test defined elsewhere in the same
   file. Dangling references are a validation error.
-- The dependency graph formed by `source-domain` references must be acyclic.
+- The dependency graph formed by `depends-on` references must be acyclic.
   Cycles are a validation error.
 
 ## Generated jenkins-job-builder output
@@ -64,10 +64,10 @@ suites:
     - `--source-domain "$SOURCE_DOMAIN"` is used for domain-sourced tests, where
       `SOURCE_DOMAIN` is a build parameter (see below).
     - `--keep` is added only when the test is a producer, i.e. it is referenced
-      as a `source-domain` by at least one other test.
-- **Consumer jobs** (tests with a `source-domain`) declare a `SOURCE_DOMAIN`
+      as a `depends-on` by at least one other test.
+- **Consumer jobs** (tests with a `depends-on`) declare a `SOURCE_DOMAIN`
   string build parameter, which is consumed by `--source-domain`.
-- **Producer jobs** (tests referenced by a `source-domain`) use the
+- **Producer jobs** (tests referenced by a `depends-on`) use the
   `trigger-parameterized-builds` publisher to trigger each of their consumer
   jobs on success. The `SOURCE_DOMAIN` value is forwarded from a **property
   file** at `runner/artifacts/domain-name.txt`, which the runner writes (see
@@ -124,7 +124,7 @@ possible run-number suffix).
 ## Error handling
 
 - Any validation error (malformed schema, both/neither source, dangling
-  `source-domain` reference, dependency cycle) results in a non-zero exit code
+  `depends-on` reference, dependency cycle) results in a non-zero exit code
   and a clear error message. No partial output is written.
 
 ## Testing
