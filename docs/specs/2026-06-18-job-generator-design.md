@@ -49,12 +49,21 @@ is structured as a single job template plus one project:
 
 - A single `- job-template:` named `ugt-{suite}-{test}` holds the shared **SCM**
   (git checkout of `https://github.com/canonical/ubuntu-gui-testing/`, branch
-  `main`; the repo URL is hardcoded for now), the shared shell skeleton, and a
-  `triggers: '{obj:triggers}'` slot. The SCM lives in the template (not a global
-  `defaults` block) so the output can be dropped into a larger collection of JJB
-  files without overriding the collection's shared `global` defaults.
+  `main`; the repo URL is hardcoded for now), a `YARF_REF` string parameter
+  (default `main`), a first builder that provisions `yarf`, the shared runner
+  shell skeleton, and a `triggers: '{obj:triggers}'` slot. The SCM lives in the
+  template (not a global `defaults` block) so the output can be dropped into a
+  larger collection of JJB files without overriding the collection's shared
+  `global` defaults.
+
+  The yarf setup builder clones `https://github.com/canonical/yarf` (ref
+  `$YARF_REF`) into `$WORKSPACE/yarf` and runs `uv sync`; the runner builder
+  then prepends `$WORKSPACE/yarf/.venv/bin` to `PATH` so the bare `yarf` the
+  runner spawns resolves to that workspace build. See
+  [the yarf setup builder design](2026-06-18-yarf-setup-builder-design.md).
 
     ```bash
+    export PATH="$WORKSPACE/yarf/.venv/bin:$PATH"
     cd runner && uv run ubuntu-gui-testing-runner \
       --suite ../tests/{suite} \
       --test {test} \

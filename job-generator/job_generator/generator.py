@@ -7,8 +7,18 @@ from job_generator.schema import Config, GeneratorError, Test
 REPO_URL = "https://github.com/canonical/ubuntu-gui-testing/"
 BRANCH = "main"
 ISO_DIR = "/isos"
+YARF_REPO_URL = "https://github.com/canonical/yarf"
+YARF_DEFAULT_REF = "main"
+
+_YARF_SETUP = (
+    'rm -rf "$WORKSPACE/yarf"\n'
+    'git clone --depth 1 --branch "$YARF_REF" '
+    f'{YARF_REPO_URL} "$WORKSPACE/yarf"\n'
+    'cd "$WORKSPACE/yarf" && uv sync\n'
+)
 
 _SHELL = (
+    'export PATH="$WORKSPACE/yarf/.venv/bin:$PATH"\n'
     "cd runner && uv run ubuntu-gui-testing-runner \\\n"
     "  --suite ../tests/{suite} \\\n"
     "  --test {test} \\\n"
@@ -27,8 +37,20 @@ def _job_template() -> dict[str, Any]:
     return {
         "name": "ugt-{suite}-{test}",
         "scm": [{"git": {"url": REPO_URL, "branches": [BRANCH]}}],
+        "parameters": [
+            {
+                "string": {
+                    "name": "YARF_REF",
+                    "default": YARF_DEFAULT_REF,
+                    "description": "Git ref of canonical/yarf to build for this run.",
+                }
+            }
+        ],
         "triggers": "{obj:triggers}",
-        "builders": [{"shell": _SHELL}],
+        "builders": [
+            {"shell": _YARF_SETUP},
+            {"shell": _SHELL},
+        ],
     }
 
 

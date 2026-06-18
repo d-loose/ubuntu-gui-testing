@@ -45,6 +45,13 @@ and free of per-job boilerplate. The SCM lives in the template rather than a
 global `defaults` block, so the output can be combined with other JJB files
 without overriding their shared defaults.
 
+Every job first provisions `yarf` for the build: a setup builder clones
+`https://github.com/canonical/yarf` into the job workspace and runs `uv sync`,
+and the runner builder prepends the resulting `.venv/bin` to `PATH`. This keeps
+`yarf` self-contained per build (reclaimed by Jenkins workspace cleanup) rather
+than installed on the agent. The git ref is the `YARF_REF` build parameter
+(default `main`), overridable from the Jenkins UI.
+
 ## Development
 
 Requires Python ≥ 3.12 and [uv](https://docs.astral.sh/uv/).

@@ -69,11 +69,75 @@ suites:
         }
     ]
     assert template["triggers"] == "{obj:triggers}"
-    shell = template["builders"][0]["shell"]
+    shell = template["builders"][1]["shell"]
     assert "cd runner && uv run ubuntu-gui-testing-runner" in shell
     assert "--suite ../tests/{suite}" in shell
     assert "--test {test}" in shell
     assert "{args}" in shell
+
+
+def test_job_template_declares_yarf_ref_parameter(tmp_path: Path) -> None:
+    config = _config(
+        tmp_path,
+        """
+suites:
+  s:
+    tests:
+      t:
+        iso: x.iso
+""",
+    )
+
+    template = generate_jobs(config)[0]["job-template"]
+
+    assert template["parameters"] == [
+        {
+            "string": {
+                "name": "YARF_REF",
+                "default": "main",
+                "description": ("Git ref of canonical/yarf to build for this run."),
+            }
+        }
+    ]
+
+
+def test_job_template_first_builder_sets_up_yarf(tmp_path: Path) -> None:
+    config = _config(
+        tmp_path,
+        """
+suites:
+  s:
+    tests:
+      t:
+        iso: x.iso
+""",
+    )
+
+    template = generate_jobs(config)[0]["job-template"]
+    setup = template["builders"][0]["shell"]
+
+    assert "git clone" in setup
+    assert "https://github.com/canonical/yarf" in setup
+    assert '--branch "$YARF_REF"' in setup
+    assert "uv sync" in setup
+
+
+def test_runner_builder_prepends_yarf_venv_to_path(tmp_path: Path) -> None:
+    config = _config(
+        tmp_path,
+        """
+suites:
+  s:
+    tests:
+      t:
+        iso: x.iso
+""",
+    )
+
+    template = generate_jobs(config)[0]["job-template"]
+    shell = template["builders"][1]["shell"]
+
+    assert 'export PATH="$WORKSPACE/yarf/.venv/bin:$PATH"' in shell
 
 
 def test_iso_producer_instance(tmp_path: Path) -> None:
