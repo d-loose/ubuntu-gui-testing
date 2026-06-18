@@ -19,6 +19,7 @@ _Dumper.add_representer(str, _str_representer)
 
 
 def render(jobs: list[dict[str, Any]]) -> str:
+    """Serialize JJB job documents to a YAML string with preserved key order."""
     return yaml.dump(
         jobs,
         Dumper=_Dumper,
