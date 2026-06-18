@@ -37,8 +37,10 @@ suites:
 
     assert exit_code == 0
     content = output_file.read_text()
-    assert "ugt-desktop-installer-resolute.entire-disk" in content
-    assert "ugt-firefox-example-firefox-example-basic" in content
+    assert "job-template:" in content
+    assert "name: ugt-{suite}-{test}" in content
+    assert "test: resolute.entire-disk" in content
+    assert "test: firefox-example-basic" in content
     assert "reverse" in content
 
 
@@ -60,7 +62,9 @@ suites:
 
     assert exit_code == 0
     out = capsys.readouterr().out
-    assert "ugt-s-t" in out
+    assert "name: ugt-{suite}-{test}" in out
+    assert "suite: s" in out
+    assert "test: t" in out
 
 
 def test_run_returns_error_on_invalid_config(

@@ -44,35 +44,34 @@ suites:
 
 ## Generated jenkins-job-builder output
 
-- One JJB `- job:` per test.
-- Job name: `ugt-<suite>-<test>` (e.g.
-  `ugt-desktop-installer-resolute.entire-disk`).
-- Each job contains:
-  - **SCM**: git checkout of `https://github.com/canonical/ubuntu-gui-testing/`
-    (branch `main`). The repo URL is hardcoded for now.
-  - **Builder** (single shell step) that invokes the runner via `uv`:
+To avoid repeating the shared SCM and shell skeleton in every job, the output
+is structured as JJB defaults + a single job template + one project:
+
+- A `- defaults:` block named `global` holds the shared **SCM** (git checkout of
+  `https://github.com/canonical/ubuntu-gui-testing/`, branch `main`). JJB
+  applies it to every job automatically. The repo URL is hardcoded for now.
+- A single `- job-template:` named `ugt-{suite}-{test}` holds the shared shell
+  skeleton and a `triggers: '{obj:triggers}'` slot:
 
     ```bash
     cd runner && uv run ubuntu-gui-testing-runner \
-      --suite ../tests/<suite> \
-      --test <test> \
-      <--iso /isos/<file> | --source-domain-prefix ugt-<psuite>-<ptest>> \
-      [--keep]
+      --suite ../tests/{suite} \
+      --test {test} \
+      {args}
     ```
 
-    - `--iso /isos/<file>` is used for ISO-sourced tests.
-    - `--source-domain-prefix ugt-<psuite>-<ptest>` is used for domain-sourced
-      tests, where `ugt-<psuite>-<ptest>` is the producer's job name (and domain
-      prefix). The runner resolves the most recent matching domain itself.
-    - `--keep` is added only when the test is a producer, i.e. it is referenced
-      as a `depends-on` by at least one other test.
-- **Consumer jobs** (tests with a `depends-on`) declare a `reverse` trigger on
-  the producer's job with `result: success`, so they run after the producer
-  succeeds. They pass no parameters; the producer's domain is discovered by
-  prefix at runtime.
-- **Producer jobs** (tests referenced by a `depends-on`) run with `--keep` so
-  their domain survives for consumers to clone. No publisher or Jenkins plugin
-  is required.
+- A single `- project:` named `ugt` instantiates the template once per test,
+  supplying `suite`, `test`, `args`, and `triggers`:
+  - `args` is `--iso /isos/<file>` for ISO-sourced tests, or
+    `--source-domain-prefix ugt-<psuite>-<ptest>` for domain-sourced tests
+    (where `ugt-<psuite>-<ptest>` is the producer's job name and domain prefix;
+    the runner resolves the most recent matching domain itself). When the test
+    is a producer (referenced as a `depends-on` by at least one other test),
+    ` \`+`--keep` is appended so its domain survives.
+  - `triggers` is `[]` for ISO-sourced tests, or a single `reverse` trigger on
+    the producer's job (`result: success`) for domain-sourced tests, so the
+    consumer runs after the producer succeeds. No parameters are passed; the
+    producer's domain is discovered by prefix at runtime.
 - Output is a single JJB YAML document, written to stdout by default or to a
   path given by `-o/--output`.
 
@@ -134,9 +133,10 @@ jobs resolve the producer's domain without any out-of-band parameter passing.
 
 - `test_schema.py` — validation cases: valid input, both/neither source,
   dangling reference, cycle detection, producer/consumer derivation.
-- `test_generator.py` — generated job dicts: job names, SCM, builder command,
-  `--keep` only for producers, `reverse` trigger on consumers referencing the
-  producer job, and `--source-domain-prefix` for domain-sourced tests.
+- `test_generator.py` — generated structure: the `defaults`/`job-template`/
+  `project` shape, the shared SCM and shell skeleton, and per-test instances
+  (`args` with `--keep` only for producers, `--source-domain-prefix` for
+  domain-sourced tests, and a `reverse` trigger on the producer for consumers).
 - `test_cli.py` — end-to-end: input YAML file → generated JJB YAML.
 
 `runner/tests/`:

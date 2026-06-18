@@ -36,6 +36,13 @@ Each test defines exactly one of:
   `--source-domain-prefix ugt-<suite>-<test>`, so no Jenkins plugin or build
   parameter is required.
 
+### Output format
+
+The shared SCM and runner invocation are factored into a JJB `defaults` block
+and a single `job-template`; a `project` then instantiates one job per test
+with only its `suite`, `test`, `args`, and `triggers`. This keeps the generated
+config compact and free of per-job boilerplate.
+
 ## Development
 
 Requires Python ≥ 3.12 and [uv](https://docs.astral.sh/uv/).

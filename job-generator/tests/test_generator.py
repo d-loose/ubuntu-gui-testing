@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 from job_generator.generator import generate_jobs
 from job_generator.schema import Config, load_config
@@ -10,7 +11,89 @@ def _config(tmp_path: Path, content: str) -> Config:
     return load_config(path)
 
 
-def test_iso_producer_job(tmp_path: Path) -> None:
+def _instances(
+    jobs: list[dict[str, Any]],
+) -> dict[tuple[str, str], dict[str, Any]]:
+    project = next(item["project"] for item in jobs if "project" in item)
+    result = {}
+    for entry in project["jobs"]:
+        instance = entry["ugt-{suite}-{test}"]
+        result[(instance["suite"], instance["test"])] = instance
+    return result
+
+
+def test_emits_defaults_template_and_project(tmp_path: Path) -> None:
+    config = _config(
+        tmp_path,
+        """
+suites:
+  s:
+    tests:
+      t:
+        iso: x.iso
+""",
+    )
+
+    jobs = generate_jobs(config)
+
+    assert [next(iter(item)) for item in jobs] == [
+        "defaults",
+        "job-template",
+        "project",
+    ]
+
+
+def test_defaults_hold_shared_scm(tmp_path: Path) -> None:
+    config = _config(
+        tmp_path,
+        """
+suites:
+  s:
+    tests:
+      t:
+        iso: x.iso
+""",
+    )
+
+    jobs = generate_jobs(config)
+    defaults = jobs[0]["defaults"]
+
+    assert defaults["name"] == "global"
+    assert defaults["scm"] == [
+        {
+            "git": {
+                "url": "https://github.com/canonical/ubuntu-gui-testing/",
+                "branches": ["main"],
+            }
+        }
+    ]
+
+
+def test_job_template_holds_shared_shell_and_triggers(tmp_path: Path) -> None:
+    config = _config(
+        tmp_path,
+        """
+suites:
+  s:
+    tests:
+      t:
+        iso: x.iso
+""",
+    )
+
+    jobs = generate_jobs(config)
+    template = jobs[1]["job-template"]
+
+    assert template["name"] == "ugt-{suite}-{test}"
+    assert template["triggers"] == "{obj:triggers}"
+    shell = template["builders"][0]["shell"]
+    assert "cd runner && uv run ubuntu-gui-testing-runner" in shell
+    assert "--suite ../tests/{suite}" in shell
+    assert "--test {test}" in shell
+    assert "{args}" in shell
+
+
+def test_iso_producer_instance(tmp_path: Path) -> None:
     config = _config(
         tmp_path,
         """
@@ -26,29 +109,15 @@ suites:
 """,
     )
 
-    jobs = generate_jobs(config)
-    producer = jobs[0]["job"]
-
-    assert producer["name"] == "ugt-desktop-installer-resolute.entire-disk"
-    assert producer["scm"] == [
-        {
-            "git": {
-                "url": "https://github.com/canonical/ubuntu-gui-testing/",
-                "branches": ["main"],
-            }
-        }
+    instance = _instances(generate_jobs(config))[
+        ("desktop-installer", "resolute.entire-disk")
     ]
-    shell = producer["builders"][0]["shell"]
-    assert "cd runner && uv run ubuntu-gui-testing-runner" in shell
-    assert "--suite ../tests/desktop-installer" in shell
-    assert "--test resolute.entire-disk" in shell
-    assert "--iso /isos/ubuntu-26.04-desktop-amd64.iso" in shell
-    assert "--keep" in shell
-    assert "triggers" not in producer
-    assert "publishers" not in producer
+
+    assert instance["args"] == ("--iso /isos/ubuntu-26.04-desktop-amd64.iso \\\n--keep")
+    assert instance["triggers"] == []
 
 
-def test_dependency_consumer_job(tmp_path: Path) -> None:
+def test_dependency_consumer_instance(tmp_path: Path) -> None:
     config = _config(
         tmp_path,
         """
@@ -64,11 +133,14 @@ suites:
 """,
     )
 
-    jobs = generate_jobs(config)
-    consumer = jobs[1]["job"]
+    instance = _instances(generate_jobs(config))[
+        ("firefox-example", "firefox-example-basic")
+    ]
 
-    assert consumer["name"] == "ugt-firefox-example-firefox-example-basic"
-    assert consumer["triggers"] == [
+    assert instance["args"] == (
+        "--source-domain-prefix ugt-desktop-installer-resolute.entire-disk"
+    )
+    assert instance["triggers"] == [
         {
             "reverse": {
                 "jobs": "ugt-desktop-installer-resolute.entire-disk",
@@ -76,16 +148,9 @@ suites:
             }
         }
     ]
-    shell = consumer["builders"][0]["shell"]
-    assert "--suite ../tests/firefox-example" in shell
-    assert "--test firefox-example-basic" in shell
-    assert "--source-domain-prefix ugt-desktop-installer-resolute.entire-disk" in shell
-    assert "--keep" not in shell
-    assert "--iso" not in shell
-    assert "publishers" not in consumer
 
 
-def test_standalone_iso_job_has_no_keep_or_publishers(tmp_path: Path) -> None:
+def test_standalone_iso_instance_has_no_keep_or_triggers(tmp_path: Path) -> None:
     config = _config(
         tmp_path,
         """
@@ -97,9 +162,8 @@ suites:
 """,
     )
 
-    jobs = generate_jobs(config)
-    job = jobs[0]["job"]
+    instance = _instances(generate_jobs(config))[("s", "only")]
 
-    assert "--keep" not in job["builders"][0]["shell"]
-    assert "publishers" not in job
-    assert "triggers" not in job
+    assert instance["args"] == "--iso /isos/x.iso"
+    assert "--keep" not in instance["args"]
+    assert instance["triggers"] == []
